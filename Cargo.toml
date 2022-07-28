@@ -1,0 +1,12 @@
+[package]
+name = "zk-wasmi"
+license = "MIT AND Apache-2.0"
+keywords = ["zk", "zkSNARK", "wasm"]
+repository = "https://github.com/Riemannstein/zkWasmi"
+homepage = "https://github.com/Riemannstein/zkWasmi"
+description = "A zk-friendly WebAssembly interpreter"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+wasmi = "0"
