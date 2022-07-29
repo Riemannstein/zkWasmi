@@ -10,3 +10,13 @@ edition = "2021"
 
 [dependencies]
 wasmi = "0"
+wasmi_core = "0"
+wasmparser = { version = "0", package = "wasmparser-nostd", default-features = false }
+memory_units = "0.4.0"
+libm = "0.2.1"
+num-rational = { version = "0.4", default-features = false, features = ["num-bigint"] }
+num-traits = { version = "0.2.8", default-features = false }
+region = { version = "3.0", optional = true }
+downcast-rs = { version = "1.2", default-features = false }
+spin = { version = "0.9", default-features = false, features = ["mutex", "spin_mutex"] }
+
