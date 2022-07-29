@@ -1,4 +1,4 @@
-//! The `wasmi` virtual machine definitions.
+//! The `zk_wasmi` virtual machine definitions.
 //!
 //! These closely mirror the WebAssembly specification definitions.
 //! The overall structure is heavily inspired by the `wasmtime` virtual
@@ -27,6 +27,7 @@ mod memory;
 mod module;
 mod store;
 mod table;
+mod zk;
 
 /// Definitions from the `wasmi_core` crate.
 #[doc(inline)]
