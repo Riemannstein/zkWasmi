@@ -20,6 +20,7 @@ downcast-rs = { version = "1.2", default-features = false }
 spin = { version = "0.9", default-features = false, features = ["mutex", "spin_mutex"] }
 wat = "1"
 anyhow = "1"
+nalgebra = "0"
 
 [features]
 default = ["std"]
