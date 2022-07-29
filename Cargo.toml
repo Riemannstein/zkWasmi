@@ -9,8 +9,7 @@ version = "0.0.1"
 edition = "2021"
 
 [dependencies]
-wasmi = "0"
-wasmi_core = "0"
+wasmi_core = { version = "0.2", default-features = false }
 wasmparser = { version = "0", package = "wasmparser-nostd", default-features = false }
 memory_units = "0.4.0"
 libm = "0.2.1"
@@ -19,4 +18,28 @@ num-traits = { version = "0.2.8", default-features = false }
 region = { version = "3.0", optional = true }
 downcast-rs = { version = "1.2", default-features = false }
 spin = { version = "0.9", default-features = false, features = ["mutex", "spin_mutex"] }
+wat = "1"
+anyhow = "1"
 
+[features]
+default = ["std"]
+# Use `no-default-features` for a `no_std` build.
+std = [
+    "wasmi_core/std",
+    "wasmparser/std",
+    "spin/std",
+]
+# Enables OS supported virtual memory.
+#
+# Note
+#
+# - This feature is only supported on 64-bit platforms.
+#   For 32-bit platforms the linear memory will fallback to using the Vec
+#   based implementation.
+# - The default is to fall back is an inefficient vector based implementation.
+# - By nature this feature requires `region` and the Rust standard library.
+virtual_memory = ["wasmi_core/virtual_memory", "std"]
+
+[[example]]
+name = "main"
+path = "examples/main.rs"
