@@ -1,3 +1,3 @@
 mod tracer;
-mod r1cs;
+pub mod r1cs;
 mod finite_field;

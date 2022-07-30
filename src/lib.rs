@@ -27,6 +27,7 @@ mod memory;
 mod module;
 mod store;
 mod table;
+mod zk;
 
 /// Definitions from the `wasmi_core` crate.
 #[doc(inline)]

@@ -16,6 +16,7 @@ use crate::{
 };
 use core::cmp;
 use wasmi_core::{memory_units::Pages, ExtendInto, LittleEndianConvert, UntypedValue, WrapInto};
+use crate::zk::r1cs::R1CS;
 
 /// State that is used during Wasm function execution.
 #[derive(Debug)]
@@ -54,6 +55,10 @@ impl<'engine, 'func> FunctionExecutor<'engine, 'func> {
     pub fn execute_frame(self, mut ctx: impl AsContextMut) -> Result<CallOutcome, Trap> {
         use Instruction as Instr;
         let mut exec_ctx = ExecutionContext::new(self.value_stack, self.frame, &mut ctx, self.frame.pc());
+
+        // Create R1CS instance
+        // TODO: change R1CS_INSTANCE to a non-global variable
+        let mut r1cs : R1CS<u64> = R1CS::new();
         loop {
             // # Safety
             //
@@ -61,6 +66,11 @@ impl<'engine, 'func> FunctionExecutor<'engine, 'func> {
             let instr = unsafe {
                 self.func_body.get_release_unchecked(exec_ctx.pc)
             };
+
+            // R1CS process instruction
+            r1cs.process_instruction(&instr, &mut exec_ctx);
+
+
             match instr {
                 Instr::GetLocal { local_depth } => { exec_ctx.visit_get_local(*local_depth)?; }
                 Instr::SetLocal { local_depth } => { exec_ctx.visit_set_local(*local_depth)?; }
@@ -280,7 +290,7 @@ impl<'engine, 'func> FunctionExecutor<'engine, 'func> {
 
 /// An execution context for executing a single `wasmi` bytecode instruction.
 #[derive(Debug)]
-struct ExecutionContext<'engine, 'func, Ctx> {
+pub struct ExecutionContext<'engine, 'func, Ctx> {
     /// The program counter.
     pc: usize,
     /// Stores the value stack of live values on the Wasm stack.

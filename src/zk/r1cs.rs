@@ -1,9 +1,10 @@
 use nalgebra::DMatrix;
 use crate::engine::bytecode::Instruction;
-use crate::exec_context::ExecutionContext;
+use crate::engine::exec_context::ExecutionContext;
 use crate::AsContextMut;
 
-struct R1CS<T>{
+#[allow(non_snake_case)]
+pub struct R1CS<T>{
   variable_count : u64,
   A : Option<DMatrix<T>>,
   B : Option<DMatrix<T>>,
@@ -12,7 +13,7 @@ struct R1CS<T>{
 
 impl<T> R1CS<T>
 {
-  const fn new() -> Self{
+  pub fn new() -> Self{
     R1CS::<T>{ 
       variable_count: 1,
       A : None,
@@ -21,9 +22,7 @@ impl<T> R1CS<T>
     }
   }
 
-  fn process_instruction(instr : &Instruction, exec_ctx : &mut ExecutionContext<&mut impl AsContextMut>){
+  pub fn process_instruction(&mut self, instr : &Instruction, exec_ctx : &mut ExecutionContext<&mut impl AsContextMut>){
     
   }
 }
-
-static R1CS_INSTANCE : R1CS<u64> = R1CS::new();
