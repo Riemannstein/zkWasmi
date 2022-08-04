@@ -16,7 +16,8 @@ use crate::{
 };
 use core::cmp;
 use wasmi_core::{memory_units::Pages, ExtendInto, LittleEndianConvert, UntypedValue, WrapInto};
-use crate::zk::r1cs::R1CS;
+use crate::zk::r1cs::{R1CS, VariableValue, TraceVariable};
+
 
 /// State that is used during Wasm function execution.
 #[derive(Debug)]
@@ -56,9 +57,6 @@ impl<'engine, 'func> FunctionExecutor<'engine, 'func> {
         use Instruction as Instr;
         let mut exec_ctx = ExecutionContext::new(self.value_stack, self.frame, &mut ctx, self.frame.pc());
 
-        // Create R1CS instance
-        // TODO: change R1CS_INSTANCE to a non-global variable
-        let mut r1cs : R1CS<u64> = R1CS::new();
         loop {
             // # Safety
             //
@@ -66,10 +64,6 @@ impl<'engine, 'func> FunctionExecutor<'engine, 'func> {
             let instr = unsafe {
                 self.func_body.get_release_unchecked(exec_ctx.pc)
             };
-
-            // R1CS process instruction
-            r1cs.process_instruction(&instr, &mut exec_ctx);
-
 
             match instr {
                 Instr::GetLocal { local_depth } => { exec_ctx.visit_get_local(*local_depth)?; }
@@ -301,6 +295,8 @@ pub struct ExecutionContext<'engine, 'func, Ctx> {
     ///
     /// [`Store`]: [`crate::v1::Store`]
     ctx: Ctx,
+    /// R1CS for zkSNARK
+    r1cs : R1CS<VariableValue>
 }
 
 impl<'engine, 'func, Ctx> ExecutionContext<'engine, 'func, Ctx>
@@ -319,6 +315,7 @@ where
             frame,
             ctx,
             pc,
+            r1cs: R1CS::new()
         }
     }
 
@@ -540,6 +537,11 @@ where
     fn branch_to(&mut self, target: Target) -> Result<(), Trap> {
         self.value_stack.drop_keep(target.drop_keep());
         self.pc = target.destination_pc().into_usize();
+
+        // Arithmetization for zkSNARKs
+        let variable =self.r1cs.trace.get_mut(&0).unwrap();
+        variable.value = target.destination_pc().into_usize() as VariableValue;
+
         Ok(())
     }
 
