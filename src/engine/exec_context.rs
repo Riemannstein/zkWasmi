@@ -15,8 +15,10 @@ use crate::{
     Func,
 };
 use core::cmp;
+use ark_ff::Zero;
 use wasmi_core::{memory_units::Pages, ExtendInto, LittleEndianConvert, UntypedValue, WrapInto};
-use crate::zk::r1cs::{R1CS, VariableValue, TraceVariable};
+use crate::zk::r1cs::{R1CS, VariableValue, TraceVariable, TraceVariableKind};
+use ark_poly::{polynomial::multivariate::{SparseTerm, Term}, multivariate::SparsePolynomial};
 
 
 /// State that is used during Wasm function execution.
@@ -540,8 +542,22 @@ where
 
         // Arithmetization for zkSNARKs
         let variable =self.r1cs.trace.get_mut(&0).unwrap();
-        variable.value = target.destination_pc().into_usize() as VariableValue;
-
+        // TODO: Set variable value
+        let global_step_count = self.r1cs.global_step_count+1;
+        self.r1cs.global_step_count = global_step_count;
+        let pc_variable = TraceVariable::new(
+            TraceVariableKind::PC,
+            global_step_count, 
+            None, 
+            VariableValue::default()
+        );
+        let num_row = self.r1cs.A.shape();
+        let A = self.r1cs.A.insert_row(num_row.0, VariableValue::zero());
+        
+        // let term = SparseTerm::new(vec![(0, 1)]);
+        // // TODO: get the correct coeffecient
+        // let polynomial : SparsePolynomial<VariableValue, SparseTerm> = SparsePolynomial{num_vars:1, terms:vec![(VariableValue::default(), term)]};
+        // self.r1cs.constraints.push(polynomial);
         Ok(())
     }
 

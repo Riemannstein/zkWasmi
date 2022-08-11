@@ -9,6 +9,9 @@ version = "0.0.1"
 edition = "2021"
 
 [dependencies]
+ark-bls12-381 = "0"
+ark-poly = "0"
+ark-ff = "0"
 wasmi_core = { version = "0.2", default-features = false }
 wasmparser = { version = "0", package = "wasmparser-nostd", default-features = false }
 memory_units = "0.4.0"
