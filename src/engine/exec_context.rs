@@ -19,8 +19,8 @@ use ark_ff::Zero;
 use wasmi_core::{memory_units::Pages, ExtendInto, LittleEndianConvert, UntypedValue, WrapInto};
 use crate::zk::r1cs::{R1CS, VariableValue, TraceVariable, TraceVariableKind};
 use ark_poly::{polynomial::multivariate::{SparseTerm, Term}, multivariate::SparsePolynomial};
-
-
+use std::mem;
+use replace_with::replace_with_or_abort;
 /// State that is used during Wasm function execution.
 #[derive(Debug)]
 pub struct FunctionExecutor<'engine, 'func> {
@@ -541,7 +541,7 @@ where
         self.pc = target.destination_pc().into_usize();
 
         // Arithmetization for zkSNARKs
-        let variable =self.r1cs.trace.get_mut(&0).unwrap();
+        // let variable =self.r1cs.trace.get_mut(&0).unwrap();
         // TODO: Set variable value
         let global_step_count = self.r1cs.global_step_count+1;
         self.r1cs.global_step_count = global_step_count;
@@ -552,7 +552,12 @@ where
             VariableValue::default()
         );
         let num_row = self.r1cs.A.shape();
-        let A = self.r1cs.A.insert_row(num_row.0, VariableValue::zero());
+
+        replace_with_or_abort(&mut self.r1cs.A, |self_|{
+            self_.insert_row(num_row.0, VariableValue::zero())
+        });
+
+        // let A = self.r1cs.A.insert_row(num_row.0, VariableValue::zero());
         
         // let term = SparseTerm::new(vec![(0, 1)]);
         // // TODO: get the correct coeffecient

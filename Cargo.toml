@@ -24,6 +24,7 @@ spin = { version = "0.9", default-features = false, features = ["mutex", "spin_m
 wat = "1"
 anyhow = "1"
 nalgebra = "0"
+replace_with = "0"
 
 [features]
 default = ["std"]
