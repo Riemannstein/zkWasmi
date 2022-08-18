@@ -15,12 +15,12 @@ use crate::{
     Func,
 };
 use core::cmp;
-use ark_ff::Zero;
+use ark_ff::{Zero, One};
 use wasmi_core::{memory_units::Pages, ExtendInto, LittleEndianConvert, UntypedValue, WrapInto};
 use crate::zk::r1cs::{R1CS, VariableValue, TraceVariable, TraceVariableKind};
 use ark_poly::{polynomial::multivariate::{SparseTerm, Term}, multivariate::SparsePolynomial};
-use std::mem;
 use replace_with::replace_with_or_abort;
+
 /// State that is used during Wasm function execution.
 #[derive(Debug)]
 pub struct FunctionExecutor<'engine, 'func> {
@@ -553,10 +553,27 @@ where
         );
         let num_row = self.r1cs.A.shape();
 
+        // Modify A
         replace_with_or_abort(&mut self.r1cs.A, |self_|{
             self_.insert_row(num_row.0, VariableValue::zero())
         });
+        self.r1cs.A[(num_row.0, pc_variable.index)] = VariableValue::one();
 
+        // Modify B
+        replace_with_or_abort(&mut self.r1cs.B, |self_|{
+            self_.insert_row(num_row.0, VariableValue::zero())
+        });
+        self.r1cs.B[(num_row.0, 0)] = VariableValue::one();
+
+        // Modify C
+        replace_with_or_abort(&mut self.r1cs.C, |self_|{
+            self_.insert_row(num_row.0, VariableValue::zero())
+        });
+        // TODO: supply the correct field value
+        
+
+        println!("r1cs shape: {:?}", &self.r1cs.A.shape());
+        // println!("r1cs: {:?}", &self.r1cs.A);
         // let A = self.r1cs.A.insert_row(num_row.0, VariableValue::zero());
         
         // let term = SparseTerm::new(vec![(0, 1)]);
