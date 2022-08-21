@@ -19,7 +19,10 @@ pub struct R1CS<T : Field>{
   pub A : DMatrix<T>,
   pub B : DMatrix<T>,
   pub C:  DMatrix<T>,
-  pub trace : BTreeMap<VariableIndex, TraceVariable>,
+  pub pc : TraceVariable<T>,
+  pub variables : Vec<TraceVariable<T>>,
+  pub inputs : Vec<TraceVariable<T>>,
+  // pub trace : BTreeMap<VariableIndex, TraceVariable>,
   pub constraints : Vec<SparsePolynomial<VariableValue,SparseTerm>>
 }
 
@@ -30,18 +33,18 @@ pub enum TraceVariableKind
 }
 
 #[derive(Debug)]
-pub struct TraceVariable{
+pub struct TraceVariable<T: Field>{
   pub kind : TraceVariableKind,
   pub global_step_count : GlobalStepCount,
   pub index : VariableIndex,
-  pub value : VariableValue,
+  pub value : T,
 }
 
-impl TraceVariable {
-  pub fn new(kind : TraceVariableKind, global_step_count : GlobalStepCount, index : Option<VariableIndex>, value : VariableValue) -> Self{
+impl<T: Field> TraceVariable<T> {
+  pub fn new(kind : TraceVariableKind, global_step_count : GlobalStepCount, index : Option<VariableIndex>, value : T) -> Self{
     let mut some_index:VariableIndex = VariableIndex::default();
     match &kind {
-      PC => some_index = 1,
+      TraceVariableKind::PC => some_index = 1,
       _ => some_index = index.unwrap()
     }
     TraceVariable { kind : kind, global_step_count: global_step_count, index: some_index, value: value }
@@ -51,7 +54,7 @@ impl TraceVariable {
 impl<T : Field> R1CS<T>
 {
   pub fn new() -> Self{
-    let mut trace: BTreeMap<VariableIndex, TraceVariable> = BTreeMap::new();
+    // let mut trace: BTreeMap<VariableIndex, TraceVariable> = BTreeMap::new();
     // insert global variable counter
     // trace.insert(0, TraceVariable{global_step_count : 0, index:0, value: VariableValue::default()});
     // Initialize the proram counter
@@ -59,13 +62,20 @@ impl<T : Field> R1CS<T>
     let A : DMatrix<T> = DMatrix::from_vec(1, 2, vec![T::zero(), T::one()]);
     let B : DMatrix<T> = DMatrix::from_vec(1, 2, vec![T::one(), T::zero()]);
     let C : DMatrix<T> = DMatrix::from_vec(1, 2, vec![T::zero(), T::zero()]);
+
+    //
+
+
     R1CS::<T>{
       variable_count: 1,
       global_step_count: 0,
       A : A,
       B : B,
       C : C,
-      trace : trace,
+      pc : TraceVariable { kind: TraceVariableKind::PC, global_step_count: 0, index: 1, value: T::zero()},
+      variables : vec![],
+      inputs : vec![],
+      // trace : trace,
       constraints: vec![]
     }
   }
