@@ -67,6 +67,11 @@ impl<'engine, 'func> FunctionExecutor<'engine, 'func> {
                 self.func_body.get_release_unchecked(exec_ctx.pc)
             };
 
+
+            // Print debug information
+            println!("instruction: {:?}", &instr);
+            println!("{:?}\n", exec_ctx.value_stack());
+            
             match instr {
                 Instr::GetLocal { local_depth } => { exec_ctx.visit_get_local(*local_depth)?; }
                 Instr::SetLocal { local_depth } => { exec_ctx.visit_set_local(*local_depth)?; }
@@ -321,6 +326,11 @@ where
         }
     }
 
+    // Expose value_stack for debugging
+    pub fn value_stack(&self)->&ValueStack {
+        self.value_stack
+    }
+
     /// Returns the default linear memory.
     ///
     /// # Panics
@@ -545,7 +555,7 @@ where
         // TODO: Set variable value
         let global_step_count = self.r1cs.global_step_count+1;
         self.r1cs.global_step_count = global_step_count;
-        let pc_variable = TraceVariable::new(
+        let pc_variable : TraceVariable<VariableValue> = TraceVariable::new(
             TraceVariableKind::PC,
             global_step_count, 
             None, 
@@ -629,6 +639,9 @@ where
         } else {
             self.next_instr()
         }
+
+        // Arithmetization
+
     }
 
     fn visit_return_if_nez(&mut self, drop_keep: DropKeep) -> Result<MaybeReturn, Trap> {
