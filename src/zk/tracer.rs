@@ -1,12 +1,12 @@
-struct Tracer{
+// struct Tracer{
 
-}
+// }
 
-impl Tracer{
-  fn trace() {
+// impl Tracer{
+//   fn trace() {
     
-  }
-}
+//   }
+// }
 
-static TRACER :Tracer = Tracer{};
+// static TRACER :Tracer = Tracer{};
 

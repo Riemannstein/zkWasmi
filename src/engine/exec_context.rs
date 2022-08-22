@@ -17,8 +17,7 @@ use crate::{
 use core::cmp;
 use ark_ff::{Zero, One};
 use wasmi_core::{memory_units::Pages, ExtendInto, LittleEndianConvert, UntypedValue, WrapInto};
-use crate::zk::r1cs::{R1CS, VariableValue, TraceVariable, TraceVariableKind};
-use ark_poly::{polynomial::multivariate::{SparseTerm, Term}, multivariate::SparsePolynomial};
+use crate::zk::r1cs::{WebAssemblyR1CS, R1CS, VariableValue, TraceVariable, TraceVariableKind};
 use replace_with::replace_with_or_abort;
 
 /// State that is used during Wasm function execution.
@@ -69,8 +68,8 @@ impl<'engine, 'func> FunctionExecutor<'engine, 'func> {
 
 
             // Print debug information
+            println!("{:?}", exec_ctx.value_stack());
             println!("instruction: {:?}", &instr);
-            println!("{:?}\n", exec_ctx.value_stack());
             
             match instr {
                 Instr::GetLocal { local_depth } => { exec_ctx.visit_get_local(*local_depth)?; }
@@ -744,6 +743,10 @@ where
 
     fn visit_const(&mut self, bytes: UntypedValue) -> Result<(), Trap> {
         self.value_stack.push(bytes);
+
+        // Arithmetization
+        self.r1cs.on_const(bytes);
+
         self.next_instr()
     }
 

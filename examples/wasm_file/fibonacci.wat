@@ -18,7 +18,7 @@
     (i32.store (i32.const 0) (get_local 2))
   )
   (export "fibonacci" (func $main))
-  (start $main)
+  ;; (start $main)
 
   (data (i32.const 0) "0000")
 )
