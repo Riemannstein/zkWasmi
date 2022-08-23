@@ -226,12 +226,43 @@ impl<T> WebAssemblyR1CS<T> for R1CS<T> where T: Field{
 
   fn on_set_local(&mut self, local_index : usize) {
     // index corresponds to the index in the code instead of wasmi
+    let global_index = Self::INITIAL_VARIABLE_COUNT + local_index;
+    let variable_last = self.variables.last().unwrap();
     
+    // Add constraint
+    let shape = self.A.shape();
+
+    // Modify A
+    replace_with_or_abort(&mut self.A, |self_|{
+      self_.insert_row(shape.0, T::zero())
+    });
+    self.A[(shape.0, global_index)] = T::one();
+
+    // Modify B
+    replace_with_or_abort(&mut self.B, |self_|{
+        self_.insert_row(shape.0, T::zero())
+    });
+    self.B[(shape.0, 0)] = T::one();
+
+    // Modify C
+    replace_with_or_abort(&mut self.C, |self_|{
+        self_.insert_row(shape.0, T::zero())
+    });
+    self.C[(shape.0, variable_last.index)] = T::one();
   }
 
   fn on_get_local(&mut self, local_index : usize) {
     // index corresponds to the index in the code instead of wasmi
-    
+    let variable: TraceVariable<T> = TraceVariable {
+      kind: TraceVariableKind::Other, 
+      global_step_count: 0, // TODO 
+      index: self.variable_count, 
+      value: self.variables[local_index].value
+    };
+
+    self.push_variable(variable);
+
+
   }
 
 }
