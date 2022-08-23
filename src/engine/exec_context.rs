@@ -55,6 +55,9 @@ impl<'engine, 'func> FunctionExecutor<'engine, 'func> {
     pub fn execute_frame(self, mut ctx: impl AsContextMut) -> Result<CallOutcome, Trap> {
         use Instruction as Instr;
         let mut exec_ctx = ExecutionContext::new(self.value_stack, self.frame, &mut ctx, self.frame.pc());
+        
+        // zk, initialize locals
+        exec_ctx.init_locals(self.func_body.len_locals());
 
         loop {
             // # Safety
@@ -632,6 +635,10 @@ where
         let local_depth = Self::convert_local_depth(local_depth);
         let value = self.value_stack.peek(local_depth);
         self.value_stack.push(value);
+
+        // Arithmetization
+        self.r1cs.on_get_local(self.value_stack.stack_ptr()-local_depth-1);
+
         self.next_instr()
     }
 
@@ -639,6 +646,10 @@ where
         let local_depth = Self::convert_local_depth(local_depth);
         let new_value = self.value_stack.pop();
         *self.value_stack.peek_mut(local_depth) = new_value;
+
+        // Arithmetization
+        self.r1cs.on_set_local(self.value_stack.stack_ptr()-local_depth-1);
+
         self.next_instr()
     }
 
@@ -1379,5 +1390,8 @@ where
 
     fn visit_u64_trunc_sat_f64(&mut self) -> Result<(), Trap> {
         self.execute_unary(UntypedValue::i64_trunc_sat_f64_u)
+    }
+    fn init_locals(&mut self, len_locals : usize) {
+        self.r1cs.init_locals(len_locals);
     }
 }

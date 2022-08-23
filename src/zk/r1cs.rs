@@ -14,16 +14,17 @@ pub type VariableValue = Fq;
 #[derive(Debug)]
 #[allow(non_snake_case)]
 pub struct R1CS<T : Field>{
-  pub variable_count : usize,
-  pub global_step_count : u64,
-  pub A : DMatrix<T>,
-  pub B : DMatrix<T>,
-  pub C:  DMatrix<T>,
-  pub pc : TraceVariable<T>,
-  pub variables : Vec<TraceVariable<T>>,
-  pub inputs : Vec<TraceVariable<T>>,
+  variable_count : usize,
+  global_step_count : u64,
+  A : DMatrix<T>,
+  B : DMatrix<T>,
+  C:  DMatrix<T>,
+  pc : TraceVariable<T>,
+  // locals : Vec<TraceVariable<T>>,
+  variables : Vec<TraceVariable<T>>,
+  inputs : Vec<TraceVariable<T>>,
   // pub trace : BTreeMap<VariableIndex, TraceVariable>,
-  pub constraints : Vec<SparsePolynomial<VariableValue,SparseTerm>>
+  constraints : Vec<SparsePolynomial<VariableValue,SparseTerm>>
 }
 
 #[derive(Debug)]
@@ -53,10 +54,12 @@ impl<T: Field> TraceVariable<T> {
 }
 
 pub trait WebAssemblyR1CS<T : Field>{
-
+  fn to_field(value : usize) -> T;
   fn on_const(&mut self, bytes: UntypedValue);
   fn on_br(&mut self, target: Target);
-  fn to_field(value : usize) -> T;
+  fn on_set_local(&mut self, local_index : usize);
+  fn on_get_local(&mut self, local_index : usize);
+  
 }
 
 #[allow(non_snake_case)]
@@ -92,36 +95,51 @@ impl<T : Field> R1CS<T>
     }
   }
 
-  // pub fn process_instruction(&mut self, instr : &Instruction, exec_ctx : &mut ExecutionContext<&mut impl AsContextMut>){
-  //   use Instruction as Instr;
+  pub fn init_locals(&mut self, len_locals : usize){
+    for i in 0..len_locals{
+      let variable : TraceVariable<T> = TraceVariable{
+        kind: TraceVariableKind::Other,
+        global_step_count : 0, // TODO
+        index : self.variable_count,
+        value : T::zero()
+      };
+      self.push_variable(variable);
 
-  //   match instr{
+      // Update the matrices
+      let shape = self.A.shape();
 
-  //     Instr::Br(target) => {
+      // Modify A
+      replace_with_or_abort(&mut self.A, |self_|{
+        self_.insert_column(shape.1, T::zero())
+      });
 
-  //     }
-  //     Instr::BrIfEqz(target) => {
+      // Modify B
+      replace_with_or_abort(&mut self.B, |self_|{
+        self_.insert_column(shape.1, T::zero())
+      });
 
-  //     }
-  //     Instr::BrIfNez(target)=> {
+      // Modify C
+      replace_with_or_abort(&mut self.C, |self_|{
+        self_.insert_column(shape.1, T::zero())
+      });
+    }
 
-  //     }
+  }
 
-  //     _ => {}
-  //   }
-  // }
+  fn push_variable(&mut self, variable: TraceVariable<T>) {
+    self.variables.push(variable);
+    self.variable_count += 1;
+  }
 
-  // pub fn compile(&mut self){
-  //   // Compile to constraints to matrix form
-  //   for constraint in &self.constraints{
-  //     for term in constraint.terms(){
-
-  //     }
-  //   }
-  // }
 }
 
 impl<T> WebAssemblyR1CS<T> for R1CS<T> where T: Field{
+
+  fn to_field(value : usize) -> T {
+    // To be implemented
+    T::zero()
+  }
+
   fn on_const(&mut self, bytes: UntypedValue){
     let variable: TraceVariable<T> = TraceVariable {
       kind: TraceVariableKind::Other, 
@@ -130,12 +148,39 @@ impl<T> WebAssemblyR1CS<T> for R1CS<T> where T: Field{
       value: Self::to_field(bytes.to_bits() as usize)
     };
 
-    self.variables.push(variable);
+    let shape = self.A.shape();
+    // Modify A
+    replace_with_or_abort(&mut self.A, |self_|{
+      self_.insert_column(shape.1, T::zero())
+    });
+    replace_with_or_abort(&mut self.A, |self_|{
+      self_.insert_row(shape.0, T::zero())
+    });
+    self.A[(shape.0, variable.index)] = T::one();
 
+    // Modify B
+    replace_with_or_abort(&mut self.B, |self_|{
+      self_.insert_column(shape.1, T::zero())
+    });
+    replace_with_or_abort(&mut self.B, |self_|{
+        self_.insert_row(shape.0, T::zero())
+    });
+    self.B[(shape.0, 0)] = T::one();
 
+    // Modify C
+    replace_with_or_abort(&mut self.C, |self_|{
+      self_.insert_column(shape.1, T::zero())
+    });
+    replace_with_or_abort(&mut self.C, |self_|{
+        self_.insert_row(shape.0, T::zero())
+    });
+    self.C[(shape.0, 0)] = variable.value;    
 
     // Increment variable count
-    self.variable_count += self.variable_count;
+    self.variable_count += 1;
+
+    self.variables.push(variable);
+
   }
 
   fn on_br(&mut self, target : Target){
@@ -179,9 +224,14 @@ impl<T> WebAssemblyR1CS<T> for R1CS<T> where T: Field{
     // self.r1cs.constraints.push(polynomial);
   }
 
-  fn to_field(value : usize) -> T {
-    // To be implemented
-    T::zero()
+  fn on_set_local(&mut self, local_index : usize) {
+    // index corresponds to the index in the code instead of wasmi
+    
+  }
+
+  fn on_get_local(&mut self, local_index : usize) {
+    // index corresponds to the index in the code instead of wasmi
+    
   }
 
 }
