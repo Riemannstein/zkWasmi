@@ -318,6 +318,10 @@ impl ValueStack {
     pub fn clear(&mut self) {
         self.stack_ptr = 0;
     }
+
+    pub fn stack_ptr(&self) -> usize {
+        self.stack_ptr
+    }
 }
 
 #[cfg(test)]
