@@ -3,7 +3,10 @@ use ark_bls12_381::Fq;
 use ark_poly::polynomial::multivariate::{SparsePolynomial, SparseTerm};
 // use ark_poly::MVPolynomial;
 use ark_ff::fields::Field;
-use crate::core::UntypedValue;
+use crate::{core::UntypedValue, engine::Target};
+use replace_with::replace_with_or_abort;
+// use ark_ff::{Zero, One};
+
 
 type GlobalStepCount = u64;
 type VariableIndex = usize;
@@ -49,8 +52,11 @@ impl<T: Field> TraceVariable<T> {
   }
 }
 
-pub trait WebAssemblyR1CS{
+pub trait WebAssemblyR1CS<T : Field>{
+
   fn on_const(&mut self, bytes: UntypedValue);
+  fn on_br(&mut self, target: Target);
+  fn to_field(value : usize) -> T;
 }
 
 #[allow(non_snake_case)]
@@ -115,19 +121,67 @@ impl<T : Field> R1CS<T>
   // }
 }
 
-impl<T> WebAssemblyR1CS for R1CS<T> where T: Field{
+impl<T> WebAssemblyR1CS<T> for R1CS<T> where T: Field{
   fn on_const(&mut self, bytes: UntypedValue){
     let variable: TraceVariable<T> = TraceVariable {
       kind: TraceVariableKind::Other, 
       global_step_count: 0, // TODO 
       index: self.variable_count, 
-      value: T::zero()  // TODO
+      value: Self::to_field(bytes.to_bits() as usize)
     };
 
     self.variables.push(variable);
 
+
+
     // Increment variable count
     self.variable_count += self.variable_count;
+  }
+
+  fn on_br(&mut self, target : Target){
+    // Arithmetization for zkSNARKs
+    // let variable =self.r1cs.trace.get_mut(&0).unwrap();
+    // TODO: Set variable value
+    let pc_variable : TraceVariable<T> = TraceVariable::new(
+        TraceVariableKind::PC,
+        self.global_step_count, 
+        None, 
+        Self::to_field(target.destination_pc().into_usize()) // TODO
+    );
+    let shape = self.A.shape();
+    self.global_step_count += 1;
+
+    // Modify A
+    replace_with_or_abort(&mut self.A, |self_|{
+        self_.insert_row(shape.0, T::zero())
+    });
+    self.A[(shape.0, pc_variable.index)] = T::one();
+
+    // Modify B
+    replace_with_or_abort(&mut self.B, |self_|{
+        self_.insert_row(shape.0, T::zero())
+    });
+    self.B[(shape.0, 0)] = T::one();
+
+    // Modify C
+    replace_with_or_abort(&mut self.C, |self_|{
+        self_.insert_row(shape.0, T::zero())
+    });
+    self.C[(shape.0, 0)] = Self::to_field(target.destination_pc().into_usize());    
+
+    println!("r1cs shape: {:?}", &self.A.shape());
+    // println!("r1cs: {:?}", &self.r1cs.A);
+    // let A = self.r1cs.A.insert_row(num_row.0, VariableValue::zero());
+    
+    // let term = SparseTerm::new(vec![(0, 1)]);
+    // // TODO: get the correct coeffecient
+    // let polynomial : SparsePolynomial<VariableValue, SparseTerm> = SparsePolynomial{num_vars:1, terms:vec![(VariableValue::default(), term)]};
+    // self.r1cs.constraints.push(polynomial);
+  }
+
+  fn to_field(value : usize) -> T {
+    // To be implemented
+    T::zero()
   }
 
 }

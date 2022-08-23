@@ -15,10 +15,8 @@ use crate::{
     Func,
 };
 use core::cmp;
-use ark_ff::{Zero, One};
 use wasmi_core::{memory_units::Pages, ExtendInto, LittleEndianConvert, UntypedValue, WrapInto};
-use crate::zk::r1cs::{WebAssemblyR1CS, R1CS, VariableValue, TraceVariable, TraceVariableKind};
-use replace_with::replace_with_or_abort;
+use crate::zk::r1cs::{WebAssemblyR1CS, R1CS, VariableValue};
 
 /// State that is used during Wasm function execution.
 #[derive(Debug)]
@@ -549,46 +547,7 @@ where
         self.value_stack.drop_keep(target.drop_keep());
         self.pc = target.destination_pc().into_usize();
 
-        // Arithmetization for zkSNARKs
-        // let variable =self.r1cs.trace.get_mut(&0).unwrap();
-        // TODO: Set variable value
-        let global_step_count = self.r1cs.global_step_count+1;
-        self.r1cs.global_step_count = global_step_count;
-        let pc_variable : TraceVariable<VariableValue> = TraceVariable::new(
-            TraceVariableKind::PC,
-            global_step_count, 
-            None, 
-            VariableValue::default()
-        );
-        let num_row = self.r1cs.A.shape();
 
-        // Modify A
-        replace_with_or_abort(&mut self.r1cs.A, |self_|{
-            self_.insert_row(num_row.0, VariableValue::zero())
-        });
-        self.r1cs.A[(num_row.0, pc_variable.index)] = VariableValue::one();
-
-        // Modify B
-        replace_with_or_abort(&mut self.r1cs.B, |self_|{
-            self_.insert_row(num_row.0, VariableValue::zero())
-        });
-        self.r1cs.B[(num_row.0, 0)] = VariableValue::one();
-
-        // Modify C
-        replace_with_or_abort(&mut self.r1cs.C, |self_|{
-            self_.insert_row(num_row.0, VariableValue::zero())
-        });
-        // TODO: supply the correct field value
-        
-
-        println!("r1cs shape: {:?}", &self.r1cs.A.shape());
-        // println!("r1cs: {:?}", &self.r1cs.A);
-        // let A = self.r1cs.A.insert_row(num_row.0, VariableValue::zero());
-        
-        // let term = SparseTerm::new(vec![(0, 1)]);
-        // // TODO: get the correct coeffecient
-        // let polynomial : SparsePolynomial<VariableValue, SparseTerm> = SparsePolynomial{num_vars:1, terms:vec![(VariableValue::default(), term)]};
-        // self.r1cs.constraints.push(polynomial);
         Ok(())
     }
 
