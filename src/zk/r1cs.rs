@@ -3,19 +3,33 @@ use ark_bls12_381::Fq;
 use ark_poly::polynomial::multivariate::{SparsePolynomial, SparseTerm};
 // use ark_poly::MVPolynomial;
 use ark_ff::fields::Field;
+// use ark_ff::fields::BigInteger;
 use crate::{core::UntypedValue, engine::Target};
 use replace_with::replace_with_or_abort;
-// use ark_ff::{Zero, One};
+use ark_ff::bytes::ToBytes;
+// use super::finite_field::{TrivialField, TrivialFieldTrait};
 
 
-type GlobalStepCount = u64;
+type GlobalStepCount = usize;
 type VariableIndex = usize;
 pub type VariableValue = Fq;
+
+pub trait BigInteger{
+  fn to_bytes_le(&self) -> [u8;32]{
+    // TODO: Serialize
+    [0;32]
+  }
+}
+
+impl BigInteger for VariableValue{
+
+}
+
 #[derive(Debug)]
 #[allow(non_snake_case)]
-pub struct R1CS<T : Field>{
+pub struct R1CS<T : Field + BigInteger>{
   variable_count : usize,
-  global_step_count : u64,
+  global_step_count : GlobalStepCount,
   A : DMatrix<T>,
   B : DMatrix<T>,
   C:  DMatrix<T>,
@@ -25,7 +39,7 @@ pub struct R1CS<T : Field>{
   variables : Vec<TraceVariable<T>>,
   inputs : Vec<TraceVariable<T>>,
   // pub trace : BTreeMap<VariableIndex, TraceVariable>,
-  constraints : Vec<SparsePolynomial<VariableValue,SparseTerm>>
+  // constraints : Vec<SparsePolynomial<VariableValue,SparseTerm>>
 }
 
 #[derive(Debug)]
@@ -36,14 +50,14 @@ pub enum TraceVariableKind
 }
 
 #[derive(Debug)]
-pub struct TraceVariable<T: Field>{
+pub struct TraceVariable<T: Field+BigInteger>{
   pub kind : TraceVariableKind,
   pub global_step_count : GlobalStepCount,
   pub index : VariableIndex,
   pub value : T,
 }
 
-impl<T: Field> TraceVariable<T> {
+impl<T: Field + BigInteger> TraceVariable<T> {
 
   pub fn new(kind : TraceVariableKind, global_step_count : GlobalStepCount, index : Option<VariableIndex>, value : T) -> Self{
     let some_index : usize = match &kind {
@@ -65,7 +79,7 @@ pub trait WebAssemblyR1CS<T : Field>{
 }
 
 #[allow(non_snake_case)]
-impl<T : Field> R1CS<T>
+impl<T : Field + BigInteger> R1CS<T>
 {
 
   pub const INITIAL_VARIABLE_COUNT : usize = 2;
@@ -94,7 +108,7 @@ impl<T : Field> R1CS<T>
       variables : vec![],
       inputs : vec![],
       // trace : trace,
-      constraints: vec![]
+      // constraints: vec![]
     }
   }
 
@@ -170,9 +184,53 @@ impl<T : Field> R1CS<T>
     });
   }
 
+  pub fn zksnark_spartan(&self){
+    let shape = self.A.shape();
+    let mut count_A : usize = 0;
+    let mut count_B : usize = 0;
+    let mut count_C : usize = 0;
+
+    // A
+    let mut spartan_A: Vec<(usize, usize, [u8; 32])> = Vec::new();
+    let itr_a = self.A.iter();
+    for e in itr_a{
+      let row_index : usize = count_A / shape.1;
+      let col_index : usize = count_A % shape.1;
+      if *e != T::zero(){
+        spartan_A.push((row_index, col_index, e.to_bytes_le()));
+      }
+      count_A += 1;
+    }
+
+    // B
+    let mut spartan_B: Vec<(usize, usize, [u8; 32])> = Vec::new();
+    let itr_b = self.A.iter();
+    for e in itr_b{
+      let row_index : usize = count_B/ shape.1;
+      let col_index : usize = count_B % shape.1;
+      if *e != T::zero(){
+        spartan_B.push((row_index, col_index, e.to_bytes_le()));
+      }
+      count_B += 1;
+    }
+
+    // C
+    let mut spartan_C: Vec<(usize, usize, [u8; 32])> = Vec::new();
+    let itr_c = self.A.iter();
+    for e in itr_c{
+      let row_index : usize = count_C / shape.1;
+      let col_index : usize = count_C % shape.1;
+      if *e != T::zero(){
+        spartan_C.push((row_index, col_index, e.to_bytes_le()));
+      }
+      count_C += 1;
+    }
+    println!("");
+  }
+
 }
 
-impl<T> WebAssemblyR1CS<T> for R1CS<T> where T: Field{
+impl<T> WebAssemblyR1CS<T> for R1CS<T> where T: Field + BigInteger{
 
   fn to_field(value : usize) -> T {
     // To be implemented

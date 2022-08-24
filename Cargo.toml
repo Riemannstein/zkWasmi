@@ -9,6 +9,7 @@ version = "0.0.1"
 edition = "2021"
 
 [dependencies]
+bytes = "*"
 ark-bls12-381 = "0"
 ark-poly = "0"
 ark-ff = "0"
@@ -25,6 +26,7 @@ wat = "1"
 anyhow = "1"
 nalgebra = "0"
 replace_with = "0"
+# scalar = "*"
 
 [features]
 default = ["std"]

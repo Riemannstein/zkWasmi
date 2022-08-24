@@ -631,6 +631,7 @@ where
     }
 
     fn visit_ret(&mut self, drop_keep: DropKeep) -> Result<(), Trap> {
+        self.r1cs.zksnark_spartan();
         self.ret(drop_keep)
     }
 
