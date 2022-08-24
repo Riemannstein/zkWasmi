@@ -594,6 +594,10 @@ where
     }
 
     fn visit_br_if_nez(&mut self, target: Target) -> Result<(), Trap> {
+
+        // Arithmetization
+        self.r1cs.on_br_if_nez(target);
+
         let condition = self.value_stack.pop_as();
         if condition {
             self.branch_to(target)
@@ -601,7 +605,6 @@ where
             self.next_instr()
         }
 
-        // Arithmetization
 
     }
 

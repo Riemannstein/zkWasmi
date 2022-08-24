@@ -19,6 +19,7 @@ pub struct R1CS<T : Field>{
   A : DMatrix<T>,
   B : DMatrix<T>,
   C:  DMatrix<T>,
+  one : TraceVariable<T>,
   pc : TraceVariable<T>,
   // locals : Vec<TraceVariable<T>>,
   variables : Vec<TraceVariable<T>>,
@@ -59,7 +60,8 @@ pub trait WebAssemblyR1CS<T : Field>{
   fn on_br(&mut self, target: Target);
   fn on_set_local(&mut self, local_index : usize);
   fn on_get_local(&mut self, local_index : usize);
-  
+  fn on_br_if_eqz(&mut self, target: Target);
+  fn on_br_if_nez(&mut self, target: Target);
 }
 
 #[allow(non_snake_case)]
@@ -87,6 +89,7 @@ impl<T : Field> R1CS<T>
       A : A,
       B : B,
       C : C,
+      one : TraceVariable {kind:TraceVariableKind::Other, global_step_count:0, index:0,value: T::one()},
       pc : TraceVariable { kind: TraceVariableKind::PC, global_step_count: 0, index: 1, value: T::zero()},
       variables : vec![],
       inputs : vec![],
@@ -129,6 +132,42 @@ impl<T : Field> R1CS<T>
   fn push_variable(&mut self, variable: TraceVariable<T>) {
     self.variables.push(variable);
     self.variable_count += 1;
+  }
+
+  fn append_row(&mut self){
+    let shape = self.A.shape();
+    // Modify A
+    replace_with_or_abort(&mut self.A, |self_|{
+      self_.insert_row(shape.0, T::zero())
+    });
+
+    // Modify B
+    replace_with_or_abort(&mut self.B, |self_|{
+        self_.insert_row(shape.0, T::zero())
+    });
+
+    // Modify C
+    replace_with_or_abort(&mut self.C, |self_|{
+        self_.insert_row(shape.0, T::zero())
+    });
+  }
+
+  fn append_column(&mut self){
+    let shape = self.A.shape();
+    // Modify A
+    replace_with_or_abort(&mut self.A, |self_|{
+      self_.insert_column(shape.1, T::zero())
+    });
+
+    // Modify B
+    replace_with_or_abort(&mut self.B, |self_|{
+        self_.insert_column(shape.1, T::zero())
+    });
+
+    // Modify C
+    replace_with_or_abort(&mut self.C, |self_|{
+        self_.insert_column(shape.1, T::zero())
+    });
   }
 
 }
@@ -259,8 +298,25 @@ impl<T> WebAssemblyR1CS<T> for R1CS<T> where T: Field{
       index: self.variable_count, 
       value: self.variables[local_index].value
     };
-
+    self.append_column();
     self.push_variable(variable);
+  }
+
+  fn on_br_if_eqz(&mut self, target: Target) {
+    
+  }
+
+  fn on_br_if_nez(&mut self, target: Target) {
+    // Constraint: (target - pc)*z = 0
+    self.append_row();
+    let shape = self.A.shape();
+
+    let last_variable = self.variables.last().unwrap();
+    let target_as_field = Self::to_field(target.destination_pc().into_usize());
+    self.A[(shape.0-1, self.one.index)] = target_as_field.neg();
+    self.A[(shape.0-1, self.pc.index)] = T::one();
+
+    self.B[(shape.0-1, last_variable.index)] = T::one();
 
 
   }
