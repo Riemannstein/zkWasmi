@@ -6,7 +6,9 @@ use ark_ff::fields::Field;
 // use ark_ff::fields::BigInteger;
 use crate::{core::UntypedValue, engine::Target};
 use replace_with::replace_with_or_abort;
+use libspartan::{InputsAssignment, Instance, SNARKGens, VarsAssignment, SNARK};
 use ark_ff::bytes::ToBytes;
+use merlin::Transcript;
 // use super::finite_field::{TrivialField, TrivialFieldTrait};
 
 
@@ -184,7 +186,7 @@ impl<T : Field + BigInteger> R1CS<T>
     });
   }
 
-  pub fn zksnark_spartan(&self){
+  pub fn zk_snark_spartan(&self){
     let shape = self.A.shape();
     let mut count_A : usize = 0;
     let mut count_B : usize = 0;
@@ -225,6 +227,51 @@ impl<T : Field + BigInteger> R1CS<T>
       }
       count_C += 1;
     }
+
+    let num_cons = shape.0; // number of constraints
+    let num_vars = self.variables.len()+2; // Extra two variables are the one and pc
+    let num_inputs = self.inputs.len();
+    let inst = Instance::new(num_cons, num_vars, num_inputs, &spartan_A, &spartan_B, &spartan_C).unwrap();
+
+    // Create Variable Assignment
+    let variables_bytes : Vec<_> = self.variables.iter().map(|x|x.value.to_bytes_le()).collect();
+    let assignment_vars = VarsAssignment::new(&variables_bytes).unwrap();
+
+    // Create Input Assignment
+    let inputs_bytes : Vec<_> = self.inputs.iter().map(|x|x.value.to_bytes_le()).collect();
+    let assignment_inputs = InputsAssignment::new(&inputs_bytes).unwrap();
+
+    // Get number of non-zero entries
+    let num_non_zero_entries = num_vars -1 ;
+    
+    // Check satisfiablility
+    let res = inst.is_sat(&assignment_vars, &assignment_inputs);
+
+    // produce public parameters
+    let gens = SNARKGens::new(num_cons, num_vars, num_inputs, num_non_zero_entries);
+
+    // create a commitment to the R1CS instance
+    let (comm, decomm) = SNARK::encode(&inst, &gens);
+
+
+    // produce a proof of satisfiability
+    let mut prover_transcript = Transcript::new(b"snark_example");
+    let proof = SNARK::prove(
+      &inst,
+      &comm,
+      &decomm,
+      assignment_vars,
+      &assignment_inputs,
+      &gens,
+      &mut prover_transcript,
+    );
+
+    // verify the proof of satisfiability
+    let mut verifier_transcript = Transcript::new(b"snark_example");
+    assert!(proof
+      .verify(&comm, &assignment_inputs, &mut verifier_transcript, &gens)
+      .is_ok());
+    println!("proof verification successful!");
     println!("");
   }
 

@@ -26,6 +26,8 @@ wat = "1"
 anyhow = "1"
 nalgebra = "0"
 replace_with = "0"
+spartan = "*"
+merlin = "*"
 # scalar = "*"
 
 [features]
