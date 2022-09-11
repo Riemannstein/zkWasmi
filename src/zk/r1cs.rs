@@ -44,18 +44,18 @@ pub struct R1CS<T : Field + BigInteger>{
   // constraints : Vec<SparsePolynomial<VariableValue,SparseTerm>>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TraceVariableKind
 {
   PC,
   Other
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TraceVariable<T: Field+BigInteger>{
   pub kind : TraceVariableKind,
   pub global_step_count : GlobalStepCount,
-  pub index : VariableIndex,
+  pub index : VariableIndex, // global index with respect to the matrix
   pub value : T,
 }
 
@@ -78,6 +78,7 @@ pub trait WebAssemblyR1CS<T : Field>{
   fn on_get_local(&mut self, local_index : usize);
   fn on_br_if_eqz(&mut self, target: Target);
   fn on_br_if_nez(&mut self, target: Target);
+  fn on_i32_add(&mut self);
 }
 
 #[allow(non_snake_case)]
@@ -146,6 +147,7 @@ impl<T : Field + BigInteger> R1CS<T>
   }
 
   fn push_variable(&mut self, variable: TraceVariable<T>) {
+    // Push the variable to variables and increment the variable_count
     self.variables.push(variable);
     self.variable_count += 1;
   }
@@ -422,8 +424,30 @@ impl<T> WebAssemblyR1CS<T> for R1CS<T> where T: Field + BigInteger{
     self.A[(shape.0-1, self.pc.index)] = T::one();
 
     self.B[(shape.0-1, last_variable.index)] = T::one();
+  }
 
+  fn on_i32_add(&mut self) {
+    // index corresponds to the index in the code instead of wasmi
+    let first_operand = self.variables.last().unwrap().clone();
+    let second_operand = &self.variables[self.variables.len()-2].clone();
+    let variable: TraceVariable<T> = TraceVariable {
+      kind: TraceVariableKind::Other, 
+      global_step_count: 0, // TODO 
+      index: self.variable_count,
+      value: first_operand.value+second_operand.value
+    };
 
+    self.append_column();
+    self.append_row();
+
+    self.A[first_operand.index] = T::one();
+    self.A[second_operand.index] = T::one();
+
+    self.B[self.one.index] = T::one();
+
+    self.C[variable.index] = T::one();
+
+    self.push_variable(variable);
   }
 
 }
