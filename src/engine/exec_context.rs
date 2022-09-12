@@ -873,6 +873,10 @@ where
     }
 
     fn visit_i32_gt_s(&mut self) -> Result<(), Trap> {
+
+        // Arithmetization
+        
+
         self.execute_binary(UntypedValue::i32_gt_s)
     }
 

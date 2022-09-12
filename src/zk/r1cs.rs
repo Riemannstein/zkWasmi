@@ -3,12 +3,19 @@ use ark_bls12_381::Fq;
 use ark_poly::polynomial::multivariate::{SparsePolynomial, SparseTerm};
 // use ark_poly::MVPolynomial;
 use ark_ff::fields::Field;
-// use ark_ff::fields::BigInteger;
+use ark_ff::BigInteger;
+use ark_std::io::Write;
 use crate::{core::UntypedValue, engine::Target};
 use replace_with::replace_with_or_abort;
 use libspartan::{InputsAssignment, Instance, SNARKGens, VarsAssignment, SNARK};
 use ark_ff::bytes::ToBytes;
 use merlin::Transcript;
+use std::mem::size_of;
+use bitvec::{
+  field::BitField,
+  prelude::{bits, BitOrder, BitRef, BitSlice, BitStore, BitVec, Lsb0, Msb0},
+  view::BitView,
+};
 // use super::finite_field::{TrivialField, TrivialFieldTrait};
 
 
@@ -16,20 +23,26 @@ type GlobalStepCount = usize;
 type VariableIndex = usize;
 pub type VariableValue = Fq;
 
-pub trait BigInteger{
-  fn to_bytes_le(&self) -> [u8;32]{
-    // TODO: Serialize
-    [0;32]
-  }
+pub struct Writer;
+
+impl Write for Writer{
+  
 }
 
-impl BigInteger for VariableValue{
+// pub trait BigInteger{
+//   fn to_bytes_le(&self) -> [u8;32]{
+//     // TODO: Serialize
+//     [0;32]
+//   }
+// }
 
-}
+// impl BigInteger for VariableValue{
+
+// }
 
 #[derive(Debug)]
 #[allow(non_snake_case)]
-pub struct R1CS<T : Field + BigInteger>{
+pub struct R1CS<T : Field>{
   variable_count : usize,
   global_step_count : GlobalStepCount,
   A : DMatrix<T>,
@@ -40,6 +53,7 @@ pub struct R1CS<T : Field + BigInteger>{
   // locals : Vec<TraceVariable<T>>,
   variables : Vec<TraceVariable<T>>,
   inputs : Vec<TraceVariable<T>>,
+  stack_variables : Vec<TraceVariable<T>>
   // pub trace : BTreeMap<VariableIndex, TraceVariable>,
   // constraints : Vec<SparsePolynomial<VariableValue,SparseTerm>>
 }
@@ -52,14 +66,14 @@ pub enum TraceVariableKind
 }
 
 #[derive(Debug, Clone)]
-pub struct TraceVariable<T: Field+BigInteger>{
+pub struct TraceVariable<T: Field>{
   pub kind : TraceVariableKind,
   pub global_step_count : GlobalStepCount,
   pub index : VariableIndex, // global index with respect to the matrix
   pub value : T,
 }
 
-impl<T: Field + BigInteger> TraceVariable<T> {
+impl<T: Field> TraceVariable<T> {
 
   pub fn new(kind : TraceVariableKind, global_step_count : GlobalStepCount, index : Option<VariableIndex>, value : T) -> Self{
     let some_index : usize = match &kind {
@@ -79,13 +93,41 @@ pub trait WebAssemblyR1CS<T : Field>{
   fn on_br_if_eqz(&mut self, target: Target);
   fn on_br_if_nez(&mut self, target: Target);
   fn on_i32_add(&mut self);
+  fn on_i32_gt_s(&mut self);
 }
 
 #[allow(non_snake_case)]
-impl<T : Field + BigInteger> R1CS<T>
+impl<T : Field> R1CS<T>
 {
 
   pub const INITIAL_VARIABLE_COUNT : usize = 2;
+
+  pub fn decompose_field(value : T ){
+    let modulus = 2;
+    let mut even : [u8;32] = [0;32];
+    let mut odd : [u8;32] = [0;32];
+    let bytes = value.to_bytes_le();
+    for i in 0..bytes.len(){
+      let bits = (&bytes[i]).view_bits::<Lsb0>().to_bitvec();
+      let mut byte_even: [bool;8] = [false;8];
+      let mut byte_odd : [bool;8] = [false;8];
+      for j in 0..bits.len(){
+        if (j % 2) == 0 { // Even bit
+          byte_even[j] = bits[j];
+        }
+        else { // Odd bit
+          byte_odd[j] = bits[j];
+        }
+        
+      }
+      even[i] = byte_even;
+      odd[i] = byte_odd;
+
+    }
+    // let event_bits = ;
+    // let odd_bis = ;
+
+  }
 
   pub fn new() -> Self{
     // let mut trace: BTreeMap<VariableIndex, TraceVariable> = BTreeMap::new();
@@ -110,6 +152,7 @@ impl<T : Field + BigInteger> R1CS<T>
       pc : TraceVariable { kind: TraceVariableKind::PC, global_step_count: 0, index: 1, value: T::zero()},
       variables : vec![],
       inputs : vec![],
+      stack_variables : vec![]
       // trace : trace,
       // constraints: vec![]
     }
@@ -279,7 +322,15 @@ impl<T : Field + BigInteger> R1CS<T>
 
 }
 
-impl<T> WebAssemblyR1CS<T> for R1CS<T> where T: Field + BigInteger{
+impl<T> WebAssemblyR1CS<T> for R1CS<T> where T: Field{
+
+
+  fn on_i32_gt_s(&mut self){
+    // let first_operand = self.variables.last().unwrap().clone();
+    // let second_operand = &self.variables[self.variables.len()-2].clone();
+    // let 
+
+  }
 
   fn to_field(value : usize) -> T {
     // To be implemented
