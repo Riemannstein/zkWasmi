@@ -4,9 +4,9 @@ use nalgebra::DMatrix;
 // use ark_poly::MVPolynomial;
 use crate::{core::UntypedValue, engine::Target};
 use ark_ff::fields::Field;
-use ark_ff::BigInteger;
+// use ark_ff::BigInteger;
 use ark_std::io::Write;
-use bitvec::array::BitArray;
+// use bitvec::array::BitArray;
 use bitvec::{
     bitarr, bitvec,
     field::BitField,
@@ -43,17 +43,6 @@ impl Write for FieldWriter {
         Ok(())
     }
 }
-
-// pub trait BigInteger{
-//   fn to_bytes_le(&self) -> [u8;32]{
-//     // TODO: Serialize
-//     [0;32]
-//   }
-// }
-
-// impl BigInteger for VariableValue{
-
-// }
 
 #[derive(Debug)]
 #[allow(non_snake_case)]
@@ -470,6 +459,7 @@ where
             value: self.variables[local_index].value,
         };
         self.append_column();
+        self.stack_variables.push(variable.clone());
         self.push_variable(variable);
     }
 
@@ -508,7 +498,6 @@ where
         self.B[self.one.index] = T::one();
 
         self.C[variable.index] = T::one();
-
         self.push_variable(variable);
     }
 }
