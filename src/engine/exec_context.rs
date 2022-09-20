@@ -873,14 +873,16 @@ where
     }
 
     fn visit_i32_gt_s(&mut self) -> Result<(), Trap> {
-
         // Arithmetization
-        
+        self.r1cs.on_i32_gt_s();
 
         self.execute_binary(UntypedValue::i32_gt_s)
     }
 
     fn visit_i32_gt_u(&mut self) -> Result<(), Trap> {
+        // Arithmetization
+        self.r1cs.on_i32_gt_u();
+
         self.execute_binary(UntypedValue::i32_gt_u)
     }
 

@@ -1,3 +1,4 @@
+#![allow(unused)]
 use ark_bls12_381::Fq;
 // use ark_poly::polynomial::multivariate::{SparsePolynomial, SparseTerm};
 use nalgebra::DMatrix;
@@ -104,6 +105,7 @@ pub trait WebAssemblyR1CS<T: Field> {
     fn on_br_if_nez(&mut self, target: Target);
     fn on_i32_add(&mut self);
     fn on_i32_gt_s(&mut self);
+    fn on_i32_gt_u(&mut self);
 }
 
 #[allow(non_snake_case)]
@@ -353,6 +355,64 @@ impl<T> WebAssemblyR1CS<T> for R1CS<T>
 where
     T: Field,
 {
+    fn on_i32_gt_u(&mut self) {
+        let mut is_gt: TraceVariable<T> = TraceVariable {
+            kind: TraceVariableKind::Other,
+            global_step_count: 0,
+            index: self.variable_count,
+            value: T::zero(),
+        };
+
+        let right = self.stack_variables.pop().unwrap();
+        let left = self.stack_variables.pop().unwrap();
+
+        if left.value > right.value {
+            is_gt.value = T::one();
+        }
+
+        let i32_max_field_value = T::from(u32::MAX);
+        let non_determinstic_value = i32_max_field_value * is_gt.value - left.value + right.value;
+
+        let i32_max_variable: TraceVariable<T> = TraceVariable {
+            kind: TraceVariableKind::Other,
+            global_step_count: 0,
+            index: self.variable_count,
+            value: i32_max_field_value,
+        };
+        self.push_variable(i32_max_variable.clone());
+
+
+        self.push_variable(is_gt.clone());
+
+        let non_deterministc_variable: TraceVariable<T> = TraceVariable {
+            kind: TraceVariableKind::Other,
+            global_step_count: 0,
+            index: self.variable_count,
+            value: non_determinstic_value,
+        };
+
+        self.push_variable(non_deterministc_variable.clone());
+
+        // Update constraints
+        let shape = self.A.shape();
+        // Modify A
+        replace_with_or_abort(&mut self.A, |self_| self_.insert_column(shape.1, T::zero()));
+        replace_with_or_abort(&mut self.A, |self_| self_.insert_row(shape.0, T::zero()));
+        self.A[(shape.0, i32_max_variable.index)] = T::one();
+
+        // Modify B
+        replace_with_or_abort(&mut self.B, |self_| self_.insert_column(shape.1, T::zero()));
+        replace_with_or_abort(&mut self.B, |self_| self_.insert_row(shape.0, T::zero()));
+        self.B[(shape.0, is_gt.index)] = T::one();
+
+        // Modify C
+        replace_with_or_abort(&mut self.C, |self_| self_.insert_column(shape.1, T::zero()));
+        replace_with_or_abort(&mut self.C, |self_| self_.insert_row(shape.0, T::zero()));
+        self.C[(shape.0, left.index)] = T::one();
+        self.C[(shape.0, non_deterministc_variable.index)] = T::one();
+        self.C[(shape.0, right.index)] = T::one().neg();
+    }
+
     fn on_i32_gt_s(&mut self) {
         // let first_operand = self.variables.last().unwrap().clone();
         // let second_operand = &self.variables[self.variables.len()-2].clone();
@@ -388,10 +448,9 @@ where
         replace_with_or_abort(&mut self.C, |self_| self_.insert_row(shape.0, T::zero()));
         self.C[(shape.0, 0)] = variable.value;
 
-        // Increment variable count
-        self.variable_count += 1;
+        self.stack_variables.push(variable.clone());
 
-        self.variables.push(variable);
+        self.push_variable(variable);
     }
 
     fn on_br(&mut self, target: Target) {
@@ -480,8 +539,8 @@ where
 
     fn on_i32_add(&mut self) {
         // index corresponds to the index in the code instead of wasmi
-        let first_operand = self.variables.last().unwrap().clone();
-        let second_operand = &self.variables[self.variables.len() - 2].clone();
+        let first_operand = self.stack_variables.pop().unwrap();
+        let second_operand = self.stack_variables.pop().unwrap();
         let variable: TraceVariable<T> = TraceVariable {
             kind: TraceVariableKind::Other,
             global_step_count: 0, // TODO
@@ -498,6 +557,7 @@ where
         self.B[self.one.index] = T::one();
 
         self.C[variable.index] = T::one();
+        self.stack_variables.push(variable.clone());
         self.push_variable(variable);
     }
 }
