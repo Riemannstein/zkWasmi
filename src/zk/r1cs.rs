@@ -326,28 +326,28 @@ impl<T: Field> R1CS<T> {
         // produce public parameters
         let gens = SNARKGens::new(num_cons, num_vars, num_inputs, num_non_zero_entries);
 
-        // create a commitment to the R1CS instance
-        let (comm, decomm) = SNARK::encode(&inst, &gens);
+        // // create a commitment to the R1CS instance
+        // let (comm, decomm) = SNARK::encode(&inst, &gens);
 
-        // produce a proof of satisfiability
-        let mut prover_transcript = Transcript::new(b"snark_example");
-        let proof = SNARK::prove(
-            &inst,
-            &comm,
-            &decomm,
-            assignment_vars,
-            &assignment_inputs,
-            &gens,
-            &mut prover_transcript,
-        );
+        // // produce a proof of satisfiability
+        // let mut prover_transcript = Transcript::new(b"snark_example");
+        // let proof = SNARK::prove(
+        //     &inst,
+        //     &comm,
+        //     &decomm,
+        //     assignment_vars,
+        //     &assignment_inputs,
+        //     &gens,
+        //     &mut prover_transcript,
+        // );
 
-        // verify the proof of satisfiability
-        let mut verifier_transcript = Transcript::new(b"snark_example");
-        assert!(proof
-            .verify(&comm, &assignment_inputs, &mut verifier_transcript, &gens)
-            .is_ok());
-        println!("proof verification successful!");
-        println!("");
+        // // verify the proof of satisfiability
+        // let mut verifier_transcript = Transcript::new(b"snark_example");
+        // assert!(proof
+        //     .verify(&comm, &assignment_inputs, &mut verifier_transcript, &gens)
+        //     .is_ok());
+        // println!("proof verification successful!");
+        // println!("");
     }
 }
 
@@ -392,30 +392,63 @@ where
 
         self.push_variable(non_deterministc_variable.clone());
 
-        // Update constraints
+        self.append_column();
+        self.append_row();
+
         let shape = self.A.shape();
-        // Modify A
-        replace_with_or_abort(&mut self.A, |self_| self_.insert_column(shape.1, T::zero()));
-        replace_with_or_abort(&mut self.A, |self_| self_.insert_row(shape.0, T::zero()));
-        self.A[(shape.0, i32_max_variable.index)] = T::one();
-
-        // Modify B
-        replace_with_or_abort(&mut self.B, |self_| self_.insert_column(shape.1, T::zero()));
-        replace_with_or_abort(&mut self.B, |self_| self_.insert_row(shape.0, T::zero()));
-        self.B[(shape.0, is_gt.index)] = T::one();
-
-        // Modify C
-        replace_with_or_abort(&mut self.C, |self_| self_.insert_column(shape.1, T::zero()));
-        replace_with_or_abort(&mut self.C, |self_| self_.insert_row(shape.0, T::zero()));
         self.C[(shape.0, left.index)] = T::one();
         self.C[(shape.0, non_deterministc_variable.index)] = T::one();
         self.C[(shape.0, right.index)] = T::one().neg();
     }
 
     fn on_i32_gt_s(&mut self) {
-        // let first_operand = self.variables.last().unwrap().clone();
-        // let second_operand = &self.variables[self.variables.len()-2].clone();
-        // let
+        let mut is_gt: TraceVariable<T> = TraceVariable {
+            kind: TraceVariableKind::Other,
+            global_step_count: 0,
+            index: self.variable_count,
+            value: T::zero(),
+        };
+
+        let right = self.stack_variables.pop().unwrap();
+        let left = self.stack_variables.pop().unwrap();
+
+        let r1 = &mut is_gt;
+        if left.value > right.value {
+            r1.value = T::one();
+        }
+
+        self.push_variable(is_gt.clone());
+        self.append_column();
+
+        let i32_max_field_value = T::from(u32::MAX);
+
+        let i32_max_variable: TraceVariable<T> = TraceVariable {
+            kind: TraceVariableKind::Other,
+            global_step_count: 0,
+            index: self.variable_count,
+            value: i32_max_field_value,
+        };
+        self.push_variable(i32_max_variable.clone());
+        self.append_column();
+
+
+        let non_determinstic_value = i32_max_field_value * is_gt.value - left.value + right.value;
+
+        let non_deterministc_variable: TraceVariable<T> = TraceVariable {
+            kind: TraceVariableKind::Other,
+            global_step_count: 0,
+            index: self.variable_count,
+            value: non_determinstic_value,
+        };
+
+        self.push_variable(non_deterministc_variable.clone());
+        self.append_column();
+        self.append_row();
+
+        let shape = self.A.shape();
+        self.C[(shape.0-1, left.index)] = T::one();
+        self.C[(shape.0-1, non_deterministc_variable.index)] = T::one();
+        self.C[(shape.0-1, right.index)] = T::one().neg();
     }
 
     fn to_field(value: usize) -> T {
@@ -483,22 +516,22 @@ where
     fn on_set_local(&mut self, local_index: usize) {
         // index corresponds to the index in the code instead of wasmi
         let global_index = Self::INITIAL_VARIABLE_COUNT + local_index;
-        let variable_last = self.variables.last().unwrap();
+        let variable_last_index = self.variables.last().unwrap().index;
+
+
+
+        // Modify A
+        self.append_row();
 
         // Add constraint
         let shape = self.A.shape();
-
-        // Modify A
-        replace_with_or_abort(&mut self.A, |self_| self_.insert_row(shape.0, T::zero()));
-        self.A[(shape.0, global_index)] = T::one();
+        self.A[(shape.0-1, global_index)] = T::one();
 
         // Modify B
-        replace_with_or_abort(&mut self.B, |self_| self_.insert_row(shape.0, T::zero()));
-        self.B[(shape.0, 0)] = T::one();
+        self.B[(shape.0-1, 0)] = T::one();
 
         // Modify C
-        replace_with_or_abort(&mut self.C, |self_| self_.insert_row(shape.0, T::zero()));
-        self.C[(shape.0, variable_last.index)] = T::one();
+        self.C[(shape.0-1, variable_last_index)] = T::one();
     }
 
     fn on_get_local(&mut self, local_index: usize) {
