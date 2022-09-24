@@ -381,7 +381,6 @@ where
         };
         self.push_variable(i32_max_variable.clone());
 
-
         self.push_variable(is_gt.clone());
 
         let non_deterministc_variable: TraceVariable<T> = TraceVariable {
@@ -479,13 +478,6 @@ where
         self.C[(shape.0, 0)] = Self::to_field(target.destination_pc().into_usize());
 
         println!("r1cs shape: {:?}", &self.A.shape());
-        // println!("r1cs: {:?}", &self.r1cs.A);
-        // let A = self.r1cs.A.insert_row(num_row.0, VariableValue::zero());
-
-        // let term = SparseTerm::new(vec![(0, 1)]);
-        // // TODO: get the correct coeffecient
-        // let polynomial : SparsePolynomial<VariableValue, SparseTerm> = SparsePolynomial{num_vars:1, terms:vec![(VariableValue::default(), term)]};
-        // self.r1cs.constraints.push(polynomial);
     }
 
     fn on_set_local(&mut self, local_index: usize) {
