@@ -1,7 +1,7 @@
 #![allow(unused)]
 use ark_bls12_381::Fq;
 // use ark_poly::polynomial::multivariate::{SparsePolynomial, SparseTerm};
-use nalgebra::DMatrix;
+use nalgebra::{DMatrix, DVector};
 // use ark_poly::MVPolynomial;
 use crate::{
     core::UntypedValue,
@@ -59,6 +59,7 @@ pub struct R1CS<T: Field> {
     C: DMatrix<T>,
     one: TraceVariable<T>,
     pc: TraceVariable<T>,
+    variable_assignments : DVector<T>, 
     // locals : Vec<TraceVariable<T>>,
     variables: Vec<TraceVariable<T>>,
     inputs: Vec<TraceVariable<T>>,
@@ -116,6 +117,16 @@ pub trait WebAssemblyR1CS<T: Field> {
 #[allow(non_snake_case)]
 impl<T: Field> R1CS<T> {
     pub const INITIAL_VARIABLE_COUNT: usize = 2;
+
+    fn check_new_constraints_sat(&self, start: usize, end: usize) {
+        for i in start..end {
+            println!("check_new_constraints_sat:\nA.shape(): {:?}\nB.shape(): {:?}\nC.shape(): {:?}\nvariable_assignments len: {:?}", 
+            &self.A.shape(), &self.B.shape(), &self.C.shape(), &self.variable_assignments.len());
+            let lhs = self.A.row(i)*&self.variable_assignments*(self.B.row(i)*&self.variable_assignments);
+            let rhs = self.C.row(i)*&self.variable_assignments;
+            assert!(lhs == rhs);
+        }
+    }
 
     fn local_to_global_index(&self, local_index: usize) -> usize {
         Self::INITIAL_VARIABLE_COUNT + local_index
@@ -180,7 +191,9 @@ impl<T: Field> R1CS<T> {
         let C: DMatrix<T> =
             DMatrix::from_vec(1, Self::INITIAL_VARIABLE_COUNT, vec![T::one(), T::zero()]);
 
-        //
+        // Initialize variable assignements
+        let mut variable_assignements = DVector::from_element(2, T::one());
+        variable_assignements[1] = T::zero();
 
         R1CS::<T> {
             variable_count: Self::INITIAL_VARIABLE_COUNT,
@@ -214,6 +227,7 @@ impl<T: Field> R1CS<T> {
                     value: T::zero(),
                 },
             ],
+            variable_assignments : variable_assignements,
             inputs: vec![],
             stack_variables: vec![], // trace : trace,
         }
@@ -245,6 +259,7 @@ impl<T: Field> R1CS<T> {
 
     fn push_variable(&mut self, variable: TraceVariable<T>) {
         // Push the variable to variables and increment the variable_count
+        self.variable_assignments = self.variable_assignments.push(variable.value);
         self.variables.push(variable);
         self.variable_count += 1;
 
@@ -531,6 +546,7 @@ where
         self.A[(shape.0 - 1, variable.index)] = T::one();
         self.B[(shape.0 - 1, 0)] = T::one();
         self.C[(shape.0 - 1, 0)] = variable.value;
+        // self.check_new_constraints_sat(shape.0-1, shape.0);
     }
 
     fn on_br(&mut self, target: Target) {
@@ -604,6 +620,7 @@ where
         self.A[(shape.0 - 1, self.pc.index)] = T::one();
 
         self.B[(shape.0 - 1, last_variable.index)] = T::one();
+        self.check_new_constraints_sat(shape.0-1, shape.0);
     }
 
     fn on_i32_add(&mut self) {
